@@ -98,6 +98,8 @@ var (
 	VarStringModelEnglishName string
 	// VarBoolSplitTimeField describe whether to split time field to begin and end
 	VarBoolSplitTimeField bool
+	// VarBoolRpcStrict when true, only generate API/logic for gRPC methods present on --rpc_service_name (create/update/delete/getList/getById)
+	VarBoolRpcStrict bool
 )
 
 // GoCommand gen go project files from command line
@@ -396,6 +398,7 @@ func GenCRUDLogicByProto(_ *cobra.Command, _ []string) error {
 		RoutePrefix:      VarStringRoutePrefix,
 		ModelChineseName: VarStringModelChineseName,
 		ModelEnglishName: VarStringModelEnglishName,
+		RpcStrict:        VarBoolRpcStrict,
 	}
 
 	err := params.Validate()

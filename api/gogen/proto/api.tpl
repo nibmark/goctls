@@ -44,23 +44,29 @@ type (
 )
 
 service {{.apiServiceName}} {
+    {{- if .RpcCreate}}
     // Create {{.modelEnglishName}} information | 创建{{.modelChineseName}}信息
     @handler create{{.modelName}}
     post /{{.modelNameSnake}}/create ({{.modelName}}Info) returns (BaseMsgResp)
-
+    {{- end }}
+    {{- if .RpcUpdate}}
     // Update {{.modelEnglishName}} information | 更新{{.modelChineseName}}信息
     @handler update{{.modelName}}
     post /{{.modelNameSnake}}/update ({{.modelName}}Info) returns (BaseMsgResp)
-
+    {{- end }}
+    {{- if .RpcDelete}}
     // Delete {{.modelEnglishName}} information | 删除{{.modelChineseName}}信息
     @handler delete{{.modelName}}
     post /{{.modelNameSnake}}/delete ({{if .useUUID}}UU{{end}}IDs{{.IdType}}Req) returns (BaseMsgResp)
-
+    {{- end }}
+    {{- if .RpcList}}
     // Get {{.modelEnglishName}} list | 获取{{.modelChineseName}}信息列表
     @handler get{{.modelName}}List
     post /{{.modelNameSnake}}/list ({{.modelName}}ListReq) returns ({{.modelName}}ListResp)
-
+    {{- end }}
+    {{- if .RpcGetById}}
     // Get {{.modelEnglishName}} by ID | 通过ID获取{{.modelChineseName}}信息
     @handler get{{.modelName}}ById
     post /{{.modelNameSnake}} ({{if .useUUID}}UU{{end}}ID{{.IdType}}Req) returns ({{.modelName}}InfoResp)
+    {{- end }}
 }

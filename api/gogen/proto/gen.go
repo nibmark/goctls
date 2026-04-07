@@ -68,6 +68,8 @@ type GenLogicByProtoContext struct {
 	HasCreated       bool
 	ModelChineseName string
 	ModelEnglishName string
+	// RpcStrict when true, only emit create/update/delete/list/getById logic and routes that exist as rpc on RPCServiceName
+	RpcStrict bool
 }
 
 func (g GenLogicByProtoContext) Validate() error {
@@ -108,6 +110,12 @@ func GenLogicByProto(p *GenLogicByProtoContext) error {
 	protoData, err := protoParser.Parse(p.ProtoDir, p.Multiple)
 	if err != nil {
 		return err
+	}
+
+	if p.RpcStrict {
+		if findService(protoData.Service, p.RPCServiceName) == nil {
+			return fmt.Errorf("rpc_strict: service %q not found in proto", p.RPCServiceName)
+		}
 	}
 
 	p.RPCPbPackageName = protoData.PbPackage
@@ -219,80 +227,88 @@ func GenCRUDData(ctx *GenLogicByProtoContext, p *parser.Proto, projectCtx *ctx.P
 	var data []*ApiLogicData
 	var setLogic string
 
+	flags := effectiveRPCFlags(ctx, p)
+
 	for _, v := range p.Message {
 		if strings.Contains(v.Name, ctx.ModelName) {
 			if fmt.Sprintf("%sInfo", ctx.ModelName) == v.Name {
 				setLogic = genSetLogic(v.Message, ctx)
 
-				createLogic := bytes.NewBufferString("")
-				createLogicTmpl, _ := template.New("create").Parse(createTpl)
-				logx.Must(createLogicTmpl.Execute(createLogic, map[string]any{
-					"setLogic":           setLogic,
-					"modelName":          ctx.ModelName,
-					"modelNameLowerCase": strings.ToLower(ctx.ModelName),
-					"projectPackage":     projectCtx.Path,
-					"rpcPackage":         ctx.GrpcPackage,
-					"rpcName":            ctx.RpcName,
-					"rpcPbPackageName":   ctx.RPCPbPackageName,
-					"useUUID":            ctx.UseUUID,
-					"useI18n":            ctx.UseI18n,
-					"importPrefix":       ctx.ImportPrefix,
-					"optionalService":    ctx.OptionalService,
-					"IdType":             ctx.IdType,
-					"HasCreated":         ctx.HasCreated,
-				}))
+				if flags.Create {
+					createLogic := bytes.NewBufferString("")
+					createLogicTmpl, _ := template.New("create").Parse(createTpl)
+					logx.Must(createLogicTmpl.Execute(createLogic, map[string]any{
+						"setLogic":           setLogic,
+						"modelName":          ctx.ModelName,
+						"modelNameLowerCase": strings.ToLower(ctx.ModelName),
+						"projectPackage":     projectCtx.Path,
+						"rpcPackage":         ctx.GrpcPackage,
+						"rpcName":            ctx.RpcName,
+						"rpcPbPackageName":   ctx.RPCPbPackageName,
+						"useUUID":            ctx.UseUUID,
+						"useI18n":            ctx.UseI18n,
+						"importPrefix":       ctx.ImportPrefix,
+						"optionalService":    ctx.OptionalService,
+						"IdType":             ctx.IdType,
+						"HasCreated":         ctx.HasCreated,
+					}))
 
-				data = append(data, &ApiLogicData{
-					LogicName: fmt.Sprintf("Create%sLogic", ctx.ModelName),
-					LogicCode: createLogic.String(),
-				})
+					data = append(data, &ApiLogicData{
+						LogicName: fmt.Sprintf("Create%sLogic", ctx.ModelName),
+						LogicCode: createLogic.String(),
+					})
+				}
 
-				updateLogic := bytes.NewBufferString("")
-				updateLogicTmpl, _ := template.New("update").Parse(updateTpl)
-				logx.Must(updateLogicTmpl.Execute(updateLogic, map[string]any{
-					"setLogic":           setLogic,
-					"modelName":          ctx.ModelName,
-					"modelNameLowerCase": strings.ToLower(ctx.ModelName),
-					"projectPackage":     projectCtx.Path,
-					"rpcPackage":         ctx.GrpcPackage,
-					"rpcName":            ctx.RpcName,
-					"rpcPbPackageName":   ctx.RPCPbPackageName,
-					"useUUID":            ctx.UseUUID,
-					"useI18n":            ctx.UseI18n,
-					"importPrefix":       ctx.ImportPrefix,
-					"optionalService":    ctx.OptionalService,
-					"IdType":             ctx.IdType,
-					"HasCreated":         ctx.HasCreated,
-				}))
+				if flags.Update {
+					updateLogic := bytes.NewBufferString("")
+					updateLogicTmpl, _ := template.New("update").Parse(updateTpl)
+					logx.Must(updateLogicTmpl.Execute(updateLogic, map[string]any{
+						"setLogic":           setLogic,
+						"modelName":          ctx.ModelName,
+						"modelNameLowerCase": strings.ToLower(ctx.ModelName),
+						"projectPackage":     projectCtx.Path,
+						"rpcPackage":         ctx.GrpcPackage,
+						"rpcName":            ctx.RpcName,
+						"rpcPbPackageName":   ctx.RPCPbPackageName,
+						"useUUID":            ctx.UseUUID,
+						"useI18n":            ctx.UseI18n,
+						"importPrefix":       ctx.ImportPrefix,
+						"optionalService":    ctx.OptionalService,
+						"IdType":             ctx.IdType,
+						"HasCreated":         ctx.HasCreated,
+					}))
 
-				data = append(data, &ApiLogicData{
-					LogicName: fmt.Sprintf("Update%sLogic", ctx.ModelName),
-					LogicCode: updateLogic.String(),
-				})
+					data = append(data, &ApiLogicData{
+						LogicName: fmt.Sprintf("Update%sLogic", ctx.ModelName),
+						LogicCode: updateLogic.String(),
+					})
+				}
 
-				// delete logic
-				deleteLogic := bytes.NewBufferString("")
-				deleteLogicTmpl, _ := template.New("delete").Parse(deleteLogicTpl)
-				logx.Must(deleteLogicTmpl.Execute(deleteLogic, map[string]any{
-					"setLogic":           setLogic,
-					"modelName":          ctx.ModelName,
-					"modelNameLowerCase": strings.ToLower(ctx.ModelName),
-					"projectPackage":     projectCtx.Path,
-					"rpcPackage":         ctx.GrpcPackage,
-					"rpcName":            ctx.RpcName,
-					"rpcPbPackageName":   ctx.RPCPbPackageName,
-					"useUUID":            ctx.UseUUID,
-					"useI18n":            ctx.UseI18n,
-					"importPrefix":       ctx.ImportPrefix,
-					"optionalService":    ctx.OptionalService,
-					"IdType":             ctx.IdType,
-					"HasCreated":         ctx.HasCreated,
-				}))
+				if flags.Delete {
+					// delete logic
+					deleteLogic := bytes.NewBufferString("")
+					deleteLogicTmpl, _ := template.New("delete").Parse(deleteLogicTpl)
+					logx.Must(deleteLogicTmpl.Execute(deleteLogic, map[string]any{
+						"setLogic":           setLogic,
+						"modelName":          ctx.ModelName,
+						"modelNameLowerCase": strings.ToLower(ctx.ModelName),
+						"projectPackage":     projectCtx.Path,
+						"rpcPackage":         ctx.GrpcPackage,
+						"rpcName":            ctx.RpcName,
+						"rpcPbPackageName":   ctx.RPCPbPackageName,
+						"useUUID":            ctx.UseUUID,
+						"useI18n":            ctx.UseI18n,
+						"importPrefix":       ctx.ImportPrefix,
+						"optionalService":    ctx.OptionalService,
+						"IdType":             ctx.IdType,
+						"HasCreated":         ctx.HasCreated,
+					}))
 
-				data = append(data, &ApiLogicData{
-					LogicName: fmt.Sprintf("Delete%sLogic", ctx.ModelName),
-					LogicCode: deleteLogic.String(),
-				})
+					data = append(data, &ApiLogicData{
+						LogicName: fmt.Sprintf("Delete%sLogic", ctx.ModelName),
+						LogicCode: deleteLogic.String(),
+					})
+				}
 			}
 
 			if fmt.Sprintf("%sListReq", ctx.ModelName) == v.Name {
@@ -316,52 +332,56 @@ func GenCRUDData(ctx *GenLogicByProtoContext, p *parser.Proto, projectCtx *ctx.P
 					}
 				}
 
-				getListLogic := bytes.NewBufferString("")
-				getListLogicTmpl, _ := template.New("getList").Parse(getListLogicTpl)
-				logx.Must(getListLogicTmpl.Execute(getListLogic, map[string]any{
-					"setLogic":           strings.Replace(setLogic, "req.", "v.", -1),
-					"modelName":          ctx.ModelName,
-					"modelNameLowerCase": strings.ToLower(ctx.ModelName),
-					"projectPackage":     projectCtx.Path,
-					"rpcPackage":         ctx.GrpcPackage,
-					"rpcName":            ctx.RpcName,
-					"rpcPbPackageName":   ctx.RPCPbPackageName,
-					"searchKeys":         searchLogic.String(),
-					"useUUID":            ctx.UseUUID,
-					"useI18n":            ctx.UseI18n,
-					"importPrefix":       ctx.ImportPrefix,
-					"optionalService":    ctx.OptionalService,
-					"IdType":             ctx.IdType,
-					"HasCreated":         ctx.HasCreated,
-				}))
+				if flags.List {
+					getListLogic := bytes.NewBufferString("")
+					getListLogicTmpl, _ := template.New("getList").Parse(getListLogicTpl)
+					logx.Must(getListLogicTmpl.Execute(getListLogic, map[string]any{
+						"setLogic":           strings.Replace(setLogic, "req.", "v.", -1),
+						"modelName":          ctx.ModelName,
+						"modelNameLowerCase": strings.ToLower(ctx.ModelName),
+						"projectPackage":     projectCtx.Path,
+						"rpcPackage":         ctx.GrpcPackage,
+						"rpcName":            ctx.RpcName,
+						"rpcPbPackageName":   ctx.RPCPbPackageName,
+						"searchKeys":         searchLogic.String(),
+						"useUUID":            ctx.UseUUID,
+						"useI18n":            ctx.UseI18n,
+						"importPrefix":       ctx.ImportPrefix,
+						"optionalService":    ctx.OptionalService,
+						"IdType":             ctx.IdType,
+						"HasCreated":         ctx.HasCreated,
+					}))
 
-				data = append(data, &ApiLogicData{
-					LogicName: fmt.Sprintf("Get%sListLogic", ctx.ModelName),
-					LogicCode: getListLogic.String(),
-				})
+					data = append(data, &ApiLogicData{
+						LogicName: fmt.Sprintf("Get%sListLogic", ctx.ModelName),
+						LogicCode: getListLogic.String(),
+					})
+				}
 
-				getByIdLogic := bytes.NewBufferString("")
-				getByIdLogicTmpl, _ := template.New("getById").Parse(getByIdLogicTpl)
-				logx.Must(getByIdLogicTmpl.Execute(getByIdLogic, map[string]any{
-					"setLogic":           strings.Replace(setLogic, "req.", "data.", -1),
-					"modelName":          ctx.ModelName,
-					"modelNameLowerCase": strings.ToLower(ctx.ModelName),
-					"projectPackage":     projectCtx.Path,
-					"rpcPackage":         ctx.GrpcPackage,
-					"rpcName":            ctx.RpcName,
-					"rpcPbPackageName":   ctx.RPCPbPackageName,
-					"useUUID":            ctx.UseUUID,
-					"useI18n":            ctx.UseI18n,
-					"importPrefix":       ctx.ImportPrefix,
-					"optionalService":    ctx.OptionalService,
-					"IdType":             ctx.IdType,
-					"HasCreated":         ctx.HasCreated,
-				}))
+				if flags.GetById {
+					getByIdLogic := bytes.NewBufferString("")
+					getByIdLogicTmpl, _ := template.New("getById").Parse(getByIdLogicTpl)
+					logx.Must(getByIdLogicTmpl.Execute(getByIdLogic, map[string]any{
+						"setLogic":           strings.Replace(setLogic, "req.", "data.", -1),
+						"modelName":          ctx.ModelName,
+						"modelNameLowerCase": strings.ToLower(ctx.ModelName),
+						"projectPackage":     projectCtx.Path,
+						"rpcPackage":         ctx.GrpcPackage,
+						"rpcName":            ctx.RpcName,
+						"rpcPbPackageName":   ctx.RPCPbPackageName,
+						"useUUID":            ctx.UseUUID,
+						"useI18n":            ctx.UseI18n,
+						"importPrefix":       ctx.ImportPrefix,
+						"optionalService":    ctx.OptionalService,
+						"IdType":             ctx.IdType,
+						"HasCreated":         ctx.HasCreated,
+					}))
 
-				data = append(data, &ApiLogicData{
-					LogicName: fmt.Sprintf("Get%sByIdLogic", ctx.ModelName),
-					LogicCode: getByIdLogic.String(),
-				})
+					data = append(data, &ApiLogicData{
+						LogicName: fmt.Sprintf("Get%sByIdLogic", ctx.ModelName),
+						LogicCode: getByIdLogic.String(),
+					})
+				}
 			}
 
 		}
@@ -380,6 +400,8 @@ func GenApiData(ctx *GenLogicByProtoContext, p *parser.Proto) (string, error) {
 	} else {
 		hasRoutePrefix = false
 	}
+
+	rpcF := effectiveRPCFlags(ctx, p)
 
 	for _, v := range p.Message {
 		if strings.Contains(v.Name, ctx.ModelName) {
@@ -493,6 +515,11 @@ func GenApiData(ctx *GenLogicByProtoContext, p *parser.Proto) (string, error) {
 		"HasCreated":         ctx.HasCreated,
 		"modelChineseName":   modelChineseName,
 		"modelEnglishName":   modelEnglishName,
+		"RpcCreate":          rpcF.Create,
+		"RpcUpdate":          rpcF.Update,
+		"RpcDelete":          rpcF.Delete,
+		"RpcList":            rpcF.List,
+		"RpcGetById":         rpcF.GetById,
 	}))
 	data = apiTemplateData.String()
 
