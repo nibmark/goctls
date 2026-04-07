@@ -4,14 +4,9 @@
       field: 'status',
       slots: {
         default: (e) =>
-          h(Switch, {
-            checked: e.row.status === 1,
-            onClick: () => {
-              const newStatus = e.row.status === 1 ? 2 : 1;
-              update{{.modelName}}({ id: e.row.id, status: newStatus }).then(() => {
-                e.row.status = newStatus;
-              });
-            },
-          }),
+          h(Tag, {
+            color: e.row.status === 1 ? 'success' : 'default',
+          }, () =>
+            e.row.status === 1 ? $t('common.on') : $t('common.off')),
       },
     },

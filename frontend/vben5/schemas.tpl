@@ -8,8 +8,7 @@ import { $t } from '@vben/locales';
 import { z } from '#/adapter/form';
 
 {{if .hasStatus}}
-    import { message, Switch } from 'ant-design-vue';
-    import { update{{.modelName}} } from '#/api/{{.folderName}}/{{.modelNameLowerCamel}}';{{end}}
+    import { Tag } from 'ant-design-vue';{{end}}
 
 export const tableColumns: VxeGridProps = {
   columns: [
