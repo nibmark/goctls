@@ -37,3 +37,13 @@ go install github.com/suyuan32/goctls@latest
 > [go zero原版工具 | the original tools](https://github.com/zeromicro/go-zero/tree/master/tools/goctl)
 
 ## Simple Admin Core [https://github.com/suyuan32/simple-admin-core](https://github.com/suyuan32/simple-admin-core)
+
+
+## api proto 增加参数 --rpc_strict
+--rpc_strict：在 --rpc_service_name 对应的 service（如 AdminWallet）里，按 RPC 名判断是否生成
+对应 logic 与 api.tpl 里的 HTTP 路由
+
+
+## goctls frontend vben5 对 state/status UI组件从开关改为tag
+让 vben5 代码生成模板在带 state/status 列时，从表格里用开关直接改库 改成「用 Tag 只显示状态」，为了避免误触
+
